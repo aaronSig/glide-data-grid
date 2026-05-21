@@ -3159,6 +3159,50 @@ describe("data-editor", () => {
         expect(screen.getByTestId("glide-cell-1-2").getAttribute("aria-selected")).toBe("false");
     });
 
+    test("Controlled search results use data row indexes with sections", async () => {
+        const selectionSpy = vi.fn();
+        const ControlledSearch = () => {
+            const [results, setResults] = React.useState<readonly Item[] | undefined>();
+            React.useEffect(() => {
+                setResults([[1, 2]]);
+            }, []);
+
+            return (
+                <EventedDataEditor
+                    {...basicProps}
+                    rows={5}
+                    onGridSelectionChange={selectionSpy}
+                    sections={[{ row: 2, title: "Section" }]}
+                    showSearch={true}
+                    searchResults={results}
+                />
+            );
+        };
+
+        vi.useFakeTimers();
+        render(<ControlledSearch />, {
+            wrapper: Context,
+        });
+        prep();
+
+        const searchInput = screen.getByTestId("search-input");
+        expect((await screen.findByTestId("search-result-area")).textContent).toBe("1 result");
+
+        selectionSpy.mockClear();
+        fireEvent.keyDown(searchInput, {
+            key: "Enter",
+        });
+
+        expect(selectionSpy).toHaveBeenCalledWith(
+            expect.objectContaining({
+                current: expect.objectContaining({
+                    cell: [1, 2],
+                    range: { x: 1, y: 2, width: 1, height: 1 },
+                }),
+            })
+        );
+    });
+
     test("Sections map edited cells and validation to data rows", async () => {
         const editSpy = vi.fn();
         const validateSpy = vi.fn(() => true);
@@ -3319,6 +3363,48 @@ describe("data-editor", () => {
         });
 
         expect(screen.getByTestId("gdg-sticky-section").textContent).toBe("Sticky B");
+    });
+
+    test("Sections do not force normal row group navigation to skip group headers", async () => {
+        const selectionSpy = vi.fn();
+        vi.useFakeTimers();
+        render(
+            <EventedDataEditor
+                {...basicProps}
+                rows={4}
+                onGridSelectionChange={selectionSpy}
+                rowGrouping={{
+                    groups: [{ headerIndex: 0, isCollapsed: false }],
+                    height: 32,
+                    navigationBehavior: "normal",
+                }}
+                sections={[{ row: 1, title: "Section" }]}
+            />,
+            {
+                wrapper: Context,
+            }
+        );
+        prep();
+
+        const canvas = screen.getByTestId("data-grid-canvas");
+        sendClick(canvas, {
+            clientX: 300, // Col B
+            clientY: 36 + 32 + 44 + 16, // First data row after group header and section row
+        });
+
+        selectionSpy.mockClear();
+        fireEvent.keyDown(canvas, {
+            key: "ArrowUp",
+        });
+
+        expect(selectionSpy).toHaveBeenCalledWith(
+            expect.objectContaining({
+                current: expect.objectContaining({
+                    cell: [1, 0],
+                    range: { x: 1, y: 0, width: 1, height: 1 },
+                }),
+            })
+        );
     });
 
     test("Shift click row marker", async () => {

@@ -3715,31 +3715,35 @@ const DataEditorImpl: React.ForwardRefRenderFunction<DataEditorRef, DataEditorPr
             }
             // #endregion
 
-            const mustRestrictRow =
-                sectionRows.length > 0 || (rowGroupingNavBehavior !== undefined && rowGroupingNavBehavior !== "normal");
+            const shouldSkipGroupHeadersUp =
+                rowGroupingNavBehavior === "skip-up" ||
+                rowGroupingNavBehavior === "skip" ||
+                rowGroupingNavBehavior === "block";
+            const shouldSkipGroupHeadersDown =
+                rowGroupingNavBehavior === "skip-down" ||
+                rowGroupingNavBehavior === "skip" ||
+                rowGroupingNavBehavior === "block";
+            const mustRestrictRow = sectionRows.length > 0 || shouldSkipGroupHeadersUp || shouldSkipGroupHeadersDown;
 
             if (mustRestrictRow && row !== startRow) {
-                const skipUp =
-                    sectionRows.length > 0 ||
-                    rowGroupingNavBehavior === "skip-up" ||
-                    rowGroupingNavBehavior === "skip" ||
-                    rowGroupingNavBehavior === "block";
-                const skipDown =
-                    sectionRows.length > 0 ||
-                    rowGroupingNavBehavior === "skip-down" ||
-                    rowGroupingNavBehavior === "skip" ||
-                    rowGroupingNavBehavior === "block";
                 const didMoveUp = row < startRow;
-                if (didMoveUp && skipUp) {
-                    while (row >= 0 && (getSectionForRow(row) !== undefined || mapper(row).isGroupHeader)) {
+                if (didMoveUp) {
+                    while (
+                        row >= 0 &&
+                        (getSectionForRow(row) !== undefined || (shouldSkipGroupHeadersUp && mapper(row).isGroupHeader))
+                    ) {
                         row--;
                     }
 
                     if (row < 0) {
                         row = startRow;
                     }
-                } else if (!didMoveUp && skipDown) {
-                    while (row < rows && (getSectionForRow(row) !== undefined || mapper(row).isGroupHeader)) {
+                } else {
+                    while (
+                        row < rows &&
+                        (getSectionForRow(row) !== undefined ||
+                            (shouldSkipGroupHeadersDown && mapper(row).isGroupHeader))
+                    ) {
                         row++;
                     }
 
@@ -4264,6 +4268,10 @@ const DataEditorImpl: React.ForwardRefRenderFunction<DataEditorRef, DataEditorPr
         },
         [onSearchResultsChangedIn, toPublicCell, updateSelectedCell]
     );
+    const mangledSearchResults = React.useMemo(() => {
+        if (searchResults === undefined) return undefined;
+        return searchResults.map(([col, row]) => [col + rowMarkerOffset, dataRowToVisualRow(row)] as const);
+    }, [dataRowToVisualRow, rowMarkerOffset, searchResults]);
 
     // this effects purpose in life is to scroll the newly selected cell into view when and ONLY when that cell
     // is from an external gridSelection change. Also note we want the unmangled out selection because scrollTo
@@ -4656,7 +4664,7 @@ const DataEditorImpl: React.ForwardRefRenderFunction<DataEditorRef, DataEditorPr
                     onVisibleRegionChanged={onVisibleRegionChangedImpl}
                     clientSize={clientSize}
                     rowHeight={rowHeight}
-                    searchResults={searchResults}
+                    searchResults={mangledSearchResults}
                     searchValue={searchValue}
                     onSearchValueChange={onSearchValueChange}
                     rows={mangledRows}
