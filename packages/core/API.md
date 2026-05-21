@@ -98,6 +98,7 @@ Most data grids will want to set the majority of these props one way or another.
 | [portalElementRef](#portalelementref)             | A ref to the portal element to use for the overlay editor.                                                                                                                                                                                                          |
 | [rowHeight](#rowheight)                           | Callback or number used to specify the height of a given row.                                                                                                                                                                                                       |
 | [rowMarkers](#rowmarkers)                         | Enable/disable row marker column on the left. Can show row numbers, selection boxes, or both.                                                                                                                                                                       |
+| [sections](#sections)                             | Adds non-selectable full-width section rows before the provided row indexes.                                                                                                                                                                                        |
 | [smoothScrollX](#smoothscroll)                    | Enable/disable smooth scrolling on the X axis.                                                                                                                                                                                                                      |
 | [smoothScrollY](#smoothscroll)                    | Enable/disable smooth scrolling on the Y axis.                                                                                                                                                                                                                      |
 
@@ -659,6 +660,30 @@ rowMarkers?: "checkbox" | "number" | "both" | "none";
 ```
 
 `rowMarkers` determines whether to display the marker column on the very left. It defaults to `none`. Note that this column doesn't count as a table column, i.e. it has no index, and doesn't change column indexes.
+
+---
+
+## sections
+
+```ts
+interface RowSection {
+    row: number;
+    title: string;
+    height?: number;
+    sticky?: boolean;
+    stickyStyle?: "solid" | "frosted";
+    themeOverride?: Partial<Theme>;
+}
+
+sections?: readonly RowSection[];
+sectionHeight?: number;
+```
+
+`sections` inserts non-selectable full-width section rows before the provided row indexes. Section rows render with a title and are skipped by row marker selection and keyboard navigation. `sectionHeight` controls the default section row height and defaults to `44`. Set `sticky` on a section to keep it pinned at the top of the visible rows until the next section pushes it away.
+
+`stickyStyle` controls the pinned section header. Use `"solid"` for an opaque sticky header or `"frosted"` for a translucent sticky header with backdrop blur. It defaults to `"solid"`.
+
+Use `themeOverride` to style individual section rows. Section rendering uses `bgGroupHeader` and `textGroupHeader` when provided, falling back to the standard header theme.
 
 ---
 

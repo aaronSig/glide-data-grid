@@ -8,6 +8,7 @@ import {
     GridCellKind,
     isSizedGridColumn,
     type Item,
+    type Rectangle,
     markerCellRenderer,
     type InnerGridCell,
     type InternalCellRenderer,
@@ -3057,6 +3058,267 @@ describe("data-editor", () => {
             rows: CompactSelection.fromSingleSelection(2),
             current: undefined,
         });
+    });
+
+    test("Section rows are not selectable through row markers", async () => {
+        const spy = vi.fn();
+        vi.useFakeTimers();
+        render(
+            <EventedDataEditor
+                {...basicProps}
+                rows={5}
+                onGridSelectionChange={spy}
+                rowMarkers="both"
+                sections={[{ row: 2, title: "Section" }]}
+            />,
+            {
+                wrapper: Context,
+            }
+        );
+        prep();
+        spy.mockClear();
+
+        const canvas = screen.getByTestId("data-grid-canvas");
+        sendClick(canvas, {
+            clientX: 10, // Row marker
+            clientY: 36 + 32 * 2 + 22, // Section row
+        });
+
+        expect(spy).not.toHaveBeenCalled();
+    });
+
+    test("Rows after sections report data row indexes", async () => {
+        const clickSpy = vi.fn();
+        const selectionSpy = vi.fn();
+        vi.useFakeTimers();
+        render(
+            <EventedDataEditor
+                {...basicProps}
+                rows={5}
+                onCellClicked={clickSpy}
+                onGridSelectionChange={selectionSpy}
+                sections={[{ row: 2, title: "Section" }]}
+            />,
+            {
+                wrapper: Context,
+            }
+        );
+        prep();
+
+        const canvas = screen.getByTestId("data-grid-canvas");
+        sendClick(canvas, {
+            clientX: 300, // Col B
+            clientY: 36 + 32 * 2 + 44 + 16, // Data row 2 after the section row
+        });
+
+        expect(clickSpy).toHaveBeenCalledWith([1, 2], expect.anything());
+        expect(selectionSpy).toHaveBeenCalledWith(
+            expect.objectContaining({
+                current: expect.objectContaining({
+                    cell: [1, 2],
+                    range: { x: 1, y: 2, width: 1, height: 1 },
+                }),
+            })
+        );
+
+        clickSpy.mockClear();
+        selectionSpy.mockClear();
+        sendClick(canvas, {
+            clientX: 300,
+            clientY: 36 + 32 * 2 + 22, // Section row
+        });
+
+        expect(clickSpy).not.toHaveBeenCalled();
+        expect(selectionSpy).not.toHaveBeenCalled();
+    });
+
+    test("Controlled selections use data row indexes with sections", async () => {
+        vi.useFakeTimers();
+        render(
+            <EventedDataEditor
+                {...basicProps}
+                rows={5}
+                sections={[{ row: 2, title: "Section" }]}
+                gridSelection={{
+                    current: {
+                        cell: [1, 2],
+                        range: { x: 1, y: 2, width: 1, height: 1 },
+                        rangeStack: [],
+                    },
+                    rows: CompactSelection.empty(),
+                    columns: CompactSelection.empty(),
+                }}
+            />,
+            {
+                wrapper: Context,
+            }
+        );
+        prep(false);
+
+        expect(screen.getByTestId("glide-cell-1-3").getAttribute("aria-selected")).toBe("true");
+        expect(screen.getByTestId("glide-cell-1-2").getAttribute("aria-selected")).toBe("false");
+    });
+
+    test("Sections map edited cells and validation to data rows", async () => {
+        const editSpy = vi.fn();
+        const validateSpy = vi.fn(() => true);
+        vi.useFakeTimers();
+        render(
+            <DataEditor
+                {...basicProps}
+                rows={5}
+                onCellEdited={editSpy}
+                validateCell={validateSpy}
+                sections={[{ row: 2, title: "Section" }]}
+            />,
+            {
+                wrapper: Context,
+            }
+        );
+        prep();
+
+        const canvas = screen.getByTestId("data-grid-canvas");
+        sendClick(canvas, {
+            clientX: 300, // Col B
+            clientY: 36 + 32 * 2 + 44 + 16, // Data row 2 after the section row
+        });
+
+        fireEvent.keyDown(canvas, {
+            keyCode: 74,
+            key: "j",
+        });
+
+        await act(() => new Promise(r => window.setTimeout(r, 500)));
+
+        const overlay = screen.getByDisplayValue("j");
+
+        vi.useFakeTimers();
+        fireEvent.keyDown(overlay, {
+            key: "Enter",
+        });
+
+        act(() => {
+            vi.runAllTimers();
+        });
+
+        expect(validateSpy).toHaveBeenCalledWith(
+            [1, 2],
+            expect.objectContaining({ data: "j" }),
+            expect.objectContaining({ data: "j" })
+        );
+        expect(editSpy).toHaveBeenCalledWith([1, 2], expect.objectContaining({ data: "j" }));
+    });
+
+    test("Sections map copied ranges to data rows", async () => {
+        const getCellsForSelection = vi.fn((rect: Rectangle) => [
+            [
+                {
+                    kind: GridCellKind.Text,
+                    allowOverlay: true,
+                    data: `${rect.x}, ${rect.y}`,
+                    displayData: `${rect.x}, ${rect.y}`,
+                } satisfies GridCell,
+            ],
+        ]);
+        vi.useFakeTimers();
+        render(
+            <EventedDataEditor
+                {...basicProps}
+                rows={5}
+                getCellsForSelection={getCellsForSelection}
+                sections={[{ row: 2, title: "Section" }]}
+            />,
+            {
+                wrapper: Context,
+            }
+        );
+        prep(false);
+
+        const canvas = screen.getByTestId("data-grid-canvas");
+        vi.spyOn(document, "activeElement", "get").mockImplementation(() => canvas);
+        sendClick(canvas, {
+            clientX: 300, // Col B
+            clientY: 36 + 32 * 2 + 44 + 16, // Data row 2 after the section row
+        });
+
+        act(() => {
+            vi.runAllTimers();
+        });
+
+        getCellsForSelection.mockClear();
+        fireEvent.copy(window);
+
+        expect(getCellsForSelection).toHaveBeenCalledWith({ x: 1, y: 2, width: 1, height: 1 }, expect.anything());
+        expect(navigator.clipboard.writeText).toHaveBeenCalledWith("1, 2");
+    });
+
+    test("Sections do not call getCellContent as data rows", async () => {
+        const getCellContent: typeof basicProps.getCellContent = vi.fn(cell => {
+            expect(cell[1]).toBeLessThan(5);
+            return basicProps.getCellContent(cell);
+        });
+        vi.useFakeTimers();
+        render(
+            <EventedDataEditor
+                {...basicProps}
+                rows={5}
+                getCellContent={getCellContent}
+                sections={[{ row: 2, title: "Section" }]}
+            />,
+            {
+                wrapper: Context,
+            }
+        );
+        prep();
+
+        expect(getCellContent).toHaveBeenCalledWith([0, 2]);
+        expect(getCellContent).toHaveBeenCalledWith([0, 4]);
+    });
+
+    test("Sticky sections pin while scrolling", async () => {
+        const spy = vi.fn();
+        vi.useFakeTimers();
+        render(
+            <EventedDataEditor
+                {...basicProps}
+                onGridSelectionChange={spy}
+                rowMarkers="none"
+                smoothScrollY={true}
+                sections={[
+                    { row: 0, title: "Sticky A", sticky: true, stickyStyle: "frosted" },
+                    { row: 3, title: "Sticky B", sticky: true },
+                ]}
+            />,
+            {
+                wrapper: Context,
+            }
+        );
+        const scroller = prep(false);
+        assert(scroller !== null);
+        vi.spyOn(scroller, "scrollLeft", "get").mockImplementation(() => 0);
+        const scrollTop = vi.spyOn(scroller, "scrollTop", "get");
+
+        act(() => {
+            scrollTop.mockImplementation(() => 60);
+            fireEvent.scroll(scroller);
+            vi.runAllTimers();
+        });
+
+        const stickySection = screen.getByTestId("gdg-sticky-section");
+        expect(stickySection.textContent).toBe("Sticky A");
+        expect(stickySection.style.backgroundColor).toMatch(/^rgba/);
+        spy.mockClear();
+        sendClick(stickySection);
+
+        expect(spy).not.toHaveBeenCalled();
+
+        act(() => {
+            scrollTop.mockImplementation(() => 170);
+            fireEvent.scroll(scroller);
+            vi.runAllTimers();
+        });
+
+        expect(screen.getByTestId("gdg-sticky-section").textContent).toBe("Sticky B");
     });
 
     test("Shift click row marker", async () => {
