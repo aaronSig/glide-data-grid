@@ -60,6 +60,14 @@ export interface Highlight {
     readonly style?: "dashed" | "solid" | "no-outline" | "solid-outline";
 }
 
+function getSpanStartX(startCol: number, allColumns: readonly MappedGridColumn[]): number {
+    let x = 0;
+    for (let index = 0; index < startCol; index++) {
+        x += allColumns[index].width;
+    }
+    return x;
+}
+
 // preppable items:
 // - font
 // - fillStyle
@@ -234,6 +242,7 @@ export function drawCells(
                             const frozenArea = areas[0];
                             const scrollableArea = areas[1];
                             const area = c.sticky ? frozenArea : scrollableArea;
+                            const spanStartX = getSpanStartX(startCol, allColumns);
                             const splitSectionSpan =
                                 cell.kind === InnerGridCellKind.Section &&
                                 frozenArea !== undefined &&
@@ -244,10 +253,10 @@ export function drawCells(
                             if (area !== undefined) {
                                 cellX = area.x;
                                 cellWidth = area.width;
-                                if (!c.sticky && splitSectionSpan && frozenArea !== undefined) {
+                                if (!c.sticky && splitSectionSpan) {
                                     cellForDraw = {
                                         ...cell,
-                                        titleOffset: frozenArea.x - area.x,
+                                        titleOffset: spanStartX - area.x,
                                     } as InnerGridCell;
                                 }
                                 handledSpans.add(spanKey);

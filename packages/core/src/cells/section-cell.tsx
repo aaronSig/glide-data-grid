@@ -27,13 +27,15 @@ export const sectionCellRenderer: InternalCellRenderer<SectionCell> = {
         ctx.lineTo(x + width, y + height - 0.5);
         ctx.stroke();
 
-        ctx.fillStyle = theme.textGroupHeader ?? theme.textDark;
-        ctx.font = theme.headerFontFull;
-        ctx.fillText(
-            cell.title,
-            x + titleOffset + theme.cellHorizontalPadding * 2,
-            y + height / 2 + getMiddleCenterBias(ctx, ctx.font)
-        );
+        if (cell.title !== "") {
+            ctx.fillStyle = theme.textGroupHeader ?? theme.textDark;
+            ctx.font = theme.headerFontFull;
+            ctx.fillText(
+                cell.title,
+                x + titleOffset + theme.cellHorizontalPadding * 2,
+                y + height / 2 + getMiddleCenterBias(ctx, ctx.font)
+            );
+        }
     },
     onPaste: () => undefined,
 };

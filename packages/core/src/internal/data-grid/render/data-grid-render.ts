@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable unicorn/no-for-loop */
-import { type Rectangle } from "../data-grid-types.js";
+import { InnerGridCellKind, type Rectangle } from "../data-grid-types.js";
 import { CellSet } from "../cell-set.js";
 import { getEffectiveColumns, type MappedGridColumn, rectBottomRight } from "./data-grid-lib.js";
 import { blend } from "../color-parser.js";
@@ -110,6 +110,45 @@ function getLastRow(
         }
     );
     return result;
+}
+
+function addVisibleSectionRowsToDrawRegions(
+    drawRegions: Rectangle[],
+    width: number,
+    height: number,
+    totalHeaderHeight: number,
+    translateY: number,
+    cellYOffset: number,
+    rows: number,
+    getRowHeight: (row: number) => number,
+    freezeTrailingRows: number,
+    hasAppendRow: boolean,
+    getCellContent: DrawGridArg["getCellContent"]
+): void {
+    const cell: [number, number] = [0, 0];
+    walkRowsInCol(
+        cellYOffset,
+        totalHeaderHeight + translateY,
+        height,
+        rows,
+        getRowHeight,
+        freezeTrailingRows,
+        hasAppendRow,
+        undefined,
+        (drawY, row, rh) => {
+            if (row < 0) return;
+
+            cell[1] = row;
+            if (getCellContent(cell).kind !== InnerGridCellKind.Section) return;
+
+            drawRegions.push({
+                x: 0,
+                y: drawY,
+                width,
+                height: rh,
+            });
+        }
+    );
 }
 
 export function drawGrid(arg: DrawGridArg, lastArg: DrawGridArg | undefined) {
@@ -516,6 +555,7 @@ export function drawGrid(arg: DrawGridArg, lastArg: DrawGridArg | undefined) {
 
     if (canBlit === true) {
         assert(blitSource !== undefined && last !== undefined);
+        const horizontalScroll = cellXOffset !== last.cellXOffset || translateX !== last.translateX;
         const { regions } = blitLastFrame(
             targetCtx,
             blitSource,
@@ -538,6 +578,22 @@ export function drawGrid(arg: DrawGridArg, lastArg: DrawGridArg | undefined) {
             doubleBuffer
         );
         drawRegions = regions;
+        if (horizontalScroll && drawRegions.length > 0) {
+            // Section titles can be screen-anchored across frozen splits, so shifted pixels must be cleared.
+            addVisibleSectionRowsToDrawRegions(
+                drawRegions,
+                width,
+                height,
+                totalHeaderHeight,
+                translateY,
+                cellYOffset,
+                rows,
+                getRowHeight,
+                freezeTrailingRows,
+                hasAppendRow,
+                getCellContent
+            );
+        }
     } else if (canBlit !== false) {
         assert(last !== undefined);
         const resizedCol = canBlit;
