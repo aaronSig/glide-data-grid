@@ -20,10 +20,10 @@ export default {
                     description={
                         <>
                             <Description>
-                                Group rows into sections using the <PropName>sections</PropName> prop.
-                                Use <PropName>sticky</PropName> on a section to keep it pinned while scrolling.
-                                Set <PropName>stickyStyle</PropName> to <PropName>frosted</PropName> for a
-                                translucent sticky header.
+                                Group rows into sections using the <PropName>sections</PropName> prop. Use{" "}
+                                <PropName>sticky</PropName> on a section to keep it pinned while scrolling. Set{" "}
+                                <PropName>stickyStyle</PropName> to <PropName>frosted</PropName> for a translucent
+                                sticky header.
                             </Description>
                         </>
                     }
@@ -64,6 +64,38 @@ export const Sections: React.VFC = () => {
             ]}
             columns={cols}
             rows={400}
+        />
+    );
+};
+
+export const SectionsWithFrozenColumns: React.VFC = () => {
+    const { cols, getCellContent } = useMockDataGenerator(10, false);
+
+    return (
+        <DataEditor
+            {...defaultProps}
+            getCellContent={getCellContent}
+            freezeColumns={1}
+            verticalBorder={false}
+            rowMarkers="none"
+            smoothScrollY={true}
+            sections={[
+                {
+                    row: 0,
+                    title: "Frozen first column - this section title should continue cleanly across the scrollable columns (24)",
+                    sticky: true,
+                    themeOverride: {
+                        bgGroupHeader: "#eef4ff",
+                        textGroupHeader: "#1f3763",
+                        borderColor: "#b8c9eb",
+                        headerFontStyle: "600 14px",
+                    },
+                },
+                { row: 24, title: "In work (42)", sticky: true },
+                { row: 66, title: "Agreed (33)", sticky: true },
+            ]}
+            columns={cols}
+            rows={200}
         />
     );
 };

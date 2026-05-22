@@ -2,6 +2,10 @@ import { getMiddleCenterBias } from "../internal/data-grid/render/data-grid-lib.
 import { InnerGridCellKind, type SectionCell } from "../internal/data-grid/data-grid-types.js";
 import type { BaseDrawArgs, InternalCellRenderer, PrepResult } from "./cell-types.js";
 
+type SectionCellDrawData = SectionCell & {
+    readonly titleOffset?: number;
+};
+
 export const sectionCellRenderer: InternalCellRenderer<SectionCell> = {
     getAccessibilityString: c => c.title,
     kind: InnerGridCellKind.Section,
@@ -11,6 +15,7 @@ export const sectionCellRenderer: InternalCellRenderer<SectionCell> = {
     measure: () => 120,
     draw: a => {
         const { ctx, rect, theme, cell } = a;
+        const titleOffset = (cell as SectionCellDrawData).titleOffset ?? 0;
         const { x, y, width, height } = rect;
 
         ctx.fillStyle = theme.bgGroupHeader ?? theme.bgHeader;
@@ -26,7 +31,7 @@ export const sectionCellRenderer: InternalCellRenderer<SectionCell> = {
         ctx.font = theme.headerFontFull;
         ctx.fillText(
             cell.title,
-            x + theme.cellHorizontalPadding * 2,
+            x + titleOffset + theme.cellHorizontalPadding * 2,
             y + height / 2 + getMiddleCenterBias(ctx, ctx.font)
         );
     },

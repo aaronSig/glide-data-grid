@@ -9,6 +9,7 @@ import {
     type Item,
     type CellList,
     GridCellKind,
+    InnerGridCellKind,
     type DrawCellCallback,
     isInnerOnlyCell,
     type GridCell,
@@ -221,6 +222,7 @@ export function drawCells(
 
                     let cellX = drawX;
                     let cellWidth = c.width;
+                    let cellForDraw = cell;
                     let drawingSpan = false;
                     let skipContents = false;
                     if (cell.span !== undefined) {
@@ -229,13 +231,25 @@ export function drawCells(
                         if (handledSpans === undefined) handledSpans = new Set();
                         if (!handledSpans.has(spanKey)) {
                             const areas = getSpanBounds(cell.span, drawX, drawY, c.width, rh, c, allColumns);
-                            const area = c.sticky ? areas[0] : areas[1];
-                            if (!c.sticky && areas[0] !== undefined) {
+                            const frozenArea = areas[0];
+                            const scrollableArea = areas[1];
+                            const area = c.sticky ? frozenArea : scrollableArea;
+                            const splitSectionSpan =
+                                cell.kind === InnerGridCellKind.Section &&
+                                frozenArea !== undefined &&
+                                scrollableArea !== undefined;
+                            if (!c.sticky && frozenArea !== undefined && !splitSectionSpan) {
                                 skipContents = true;
                             }
                             if (area !== undefined) {
                                 cellX = area.x;
                                 cellWidth = area.width;
+                                if (!c.sticky && splitSectionSpan && frozenArea !== undefined) {
+                                    cellForDraw = {
+                                        ...cell,
+                                        titleOffset: frozenArea.x - area.x,
+                                    } as InnerGridCell;
+                                }
                                 handledSpans.add(spanKey);
                                 ctx.restore();
                                 prepResult = undefined;
@@ -399,7 +413,7 @@ export function drawCells(
                         }
                         prepResult = drawCell(
                             ctx,
-                            cell,
+                            cellForDraw,
                             c.sourceIndex,
                             row,
                             isLastColumn,
