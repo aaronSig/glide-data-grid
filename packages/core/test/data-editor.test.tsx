@@ -3087,6 +3087,52 @@ describe("data-editor", () => {
         expect(spy).not.toHaveBeenCalled();
     });
 
+    test("Section rows emit click and context menu callbacks", async () => {
+        const clickSpy = vi.fn();
+        const contextSpy = vi.fn();
+        const selectionSpy = vi.fn();
+        vi.useFakeTimers();
+        render(
+            <EventedDataEditor
+                {...basicProps}
+                rows={5}
+                onSectionHeaderClicked={clickSpy}
+                onSectionHeaderContextMenu={contextSpy}
+                onGridSelectionChange={selectionSpy}
+                sections={[{ row: 2, title: "Section" }]}
+            />,
+            {
+                wrapper: Context,
+            }
+        );
+        const scroller = prep();
+        assert(scroller !== null);
+        selectionSpy.mockClear();
+
+        const canvas = screen.getByTestId("data-grid-canvas");
+        sendClick(canvas, {
+            clientX: 300, // Col B
+            clientY: 36 + 32 * 2 + 22, // Section row
+        });
+
+        expect(clickSpy).toHaveBeenCalledWith(
+            expect.objectContaining({ row: 2, title: "Section" }),
+            expect.objectContaining({ kind: "cell", location: [1, 2] })
+        );
+        expect(selectionSpy).not.toHaveBeenCalled();
+
+        fireEvent.contextMenu(scroller, {
+            clientX: 300, // Col B
+            clientY: 36 + 32 * 2 + 22, // Section row
+        });
+
+        expect(contextSpy).toHaveBeenCalledWith(
+            expect.objectContaining({ row: 2, title: "Section" }),
+            expect.objectContaining({ kind: "cell", location: [1, 2] })
+        );
+        expect(selectionSpy).not.toHaveBeenCalled();
+    });
+
     test("Rows after sections report data row indexes", async () => {
         const clickSpy = vi.fn();
         const selectionSpy = vi.fn();
@@ -3321,11 +3367,15 @@ describe("data-editor", () => {
 
     test("Sticky sections pin while scrolling", async () => {
         const spy = vi.fn();
+        const clickSpy = vi.fn();
+        const contextSpy = vi.fn();
         vi.useFakeTimers();
         render(
             <EventedDataEditor
                 {...basicProps}
                 onGridSelectionChange={spy}
+                onSectionHeaderClicked={clickSpy}
+                onSectionHeaderContextMenu={contextSpy}
                 rowMarkers="none"
                 smoothScrollY={true}
                 sections={[
@@ -3354,6 +3404,18 @@ describe("data-editor", () => {
         spy.mockClear();
         sendClick(stickySection);
 
+        expect(clickSpy).toHaveBeenCalledWith(
+            expect.objectContaining({ row: 0, title: "Sticky A" }),
+            expect.objectContaining({ kind: "cell", location: [0, 0] })
+        );
+        expect(spy).not.toHaveBeenCalled();
+
+        fireEvent.contextMenu(stickySection);
+
+        expect(contextSpy).toHaveBeenCalledWith(
+            expect.objectContaining({ row: 0, title: "Sticky A" }),
+            expect.objectContaining({ kind: "cell", location: [0, 0] })
+        );
         expect(spy).not.toHaveBeenCalled();
 
         act(() => {

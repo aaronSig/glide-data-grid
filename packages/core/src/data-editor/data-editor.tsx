@@ -249,6 +249,10 @@ export interface DataEditorProps extends Props, Pick<DataGridSearchProps, "image
      * @group Events
      */
     readonly onCellClicked?: (cell: Item, event: CellClickedEventArgs) => void;
+    /** Emitted when a section header is clicked.
+     * @group Events
+     */
+    readonly onSectionHeaderClicked?: (section: RowSection, event: CellClickedEventArgs) => void;
     /** Emitted when a cell is activated, by pressing Enter, Space or double clicking it.
      * @group Events
      */
@@ -276,6 +280,10 @@ export interface DataEditorProps extends Props, Pick<DataGridSearchProps, "image
      * @group Events
      */
     readonly onCellContextMenu?: (cell: Item, event: CellClickedEventArgs) => void;
+    /** Emitted when a section header should show a context menu. Usually right click.
+     * @group Events
+     */
+    readonly onSectionHeaderContextMenu?: (section: RowSection, event: CellClickedEventArgs) => void;
     /** Used for validating cell values during editing.
      * @group Editing
      * @param cell The cell which is being validated.
@@ -823,6 +831,7 @@ const DataEditorImpl: React.ForwardRefRenderFunction<DataEditorRef, DataEditorPr
         rows: rowsIn,
         getCellContent,
         onCellClicked,
+        onSectionHeaderClicked,
         onCellActivated,
         onFillPattern,
         onFinishedEditing,
@@ -836,6 +845,7 @@ const DataEditorImpl: React.ForwardRefRenderFunction<DataEditorRef, DataEditorPr
         spanRangeBehavior = "default",
         onGroupHeaderClicked,
         onCellContextMenu,
+        onSectionHeaderContextMenu,
         className,
         onHeaderContextMenu,
         getCellsForSelection: getCellsForSelectionIn,
@@ -1077,6 +1087,14 @@ const DataEditorImpl: React.ForwardRefRenderFunction<DataEditorRef, DataEditorPr
             return { ...args, location: [adjustedCol, row] as any };
         },
         [rowMarkerOffset, visualRowToDataRow]
+    );
+
+    const toPublicSectionMouseArgs = React.useCallback(
+        (args: GridMouseCellEventArgs, section: RowSection): GridMouseCellEventArgs => ({
+            ...args,
+            location: [args.location[0] - rowMarkerOffset, section.row] as Item,
+        }),
+        [rowMarkerOffset]
     );
 
     const expectedExternalGridSelection = React.useRef<GridSelection | undefined>(gridSelectionOuter);
@@ -1380,6 +1398,7 @@ const DataEditorImpl: React.ForwardRefRenderFunction<DataEditorRef, DataEditorPr
 
         return {
             clipStyle,
+            section: activeSectionRow.section,
             sectionStyle,
             title: activeSectionRow.section.title,
         };
@@ -1399,6 +1418,67 @@ const DataEditorImpl: React.ForwardRefRenderFunction<DataEditorRef, DataEditorPr
         event.preventDefault();
         event.stopPropagation();
     }, []);
+
+    const toStickySectionMouseArgs = React.useCallback(
+        (
+            event: React.MouseEvent<HTMLDivElement>,
+            section: RowSection,
+            preventDefault: () => void
+        ): CellClickedEventArgs => {
+            const bounds = event.currentTarget.getBoundingClientRect();
+            return {
+                kind: "cell",
+                location: [0, section.row] as Item,
+                bounds: {
+                    x: bounds.left,
+                    y: bounds.top,
+                    width: bounds.width,
+                    height: bounds.height,
+                },
+                localEventX: event.clientX - bounds.left,
+                localEventY: event.clientY - bounds.top,
+                isFillHandle: false,
+                shiftKey: event.shiftKey,
+                ctrlKey: event.ctrlKey,
+                metaKey: event.metaKey,
+                isTouch: false,
+                isEdge: false,
+                button: event.button,
+                buttons: event.buttons,
+                scrollEdge: [0, 0] as const,
+                preventDefault,
+            };
+        },
+        []
+    );
+
+    const activeStickySection = stickySection?.section;
+
+    const onStickySectionClick = React.useCallback(
+        (event: React.MouseEvent<HTMLDivElement>) => {
+            stopStickySectionEvent(event);
+            if (activeStickySection === undefined) return;
+
+            onSectionHeaderClicked?.(
+                activeStickySection,
+                toStickySectionMouseArgs(event, activeStickySection, () => event.preventDefault())
+            );
+        },
+        [activeStickySection, onSectionHeaderClicked, stopStickySectionEvent, toStickySectionMouseArgs]
+    );
+
+    const onStickySectionContextMenu = React.useCallback(
+        (event: React.MouseEvent<HTMLDivElement>) => {
+            stopStickySectionEvent(event);
+            if (activeStickySection === undefined) return;
+
+            onSectionHeaderContextMenu?.(
+                activeStickySection,
+                toStickySectionMouseArgs(event, activeStickySection, () => event.preventDefault())
+            );
+        },
+        [activeStickySection, onSectionHeaderContextMenu, stopStickySectionEvent, toStickySectionMouseArgs]
+    );
 
     const onStickySectionWheel = React.useCallback(
         (event: React.WheelEvent) => {
@@ -2626,6 +2706,15 @@ const DataEditorImpl: React.ForwardRefRenderFunction<DataEditorRef, DataEditorPr
             const handleMaybeClick = (a: GridMouseCellEventArgs): boolean => {
                 const isValidClick = a.isTouch || (lastMouseDownCol === col && lastMouseDownRow === row);
                 if (isValidClick) {
+                    const section = getSectionForRow(a.location[1]);
+                    if (section !== undefined) {
+                        onSectionHeaderClicked?.(section, {
+                            ...toPublicSectionMouseArgs(a, section),
+                            preventDefault,
+                        });
+                        return true;
+                    }
+
                     const publicCell = toPublicCell([col, row]);
                     const publicArgs = toPublicMouseArgs(a);
                     if (publicCell !== undefined && publicArgs !== undefined) {
@@ -2709,6 +2798,17 @@ const DataEditorImpl: React.ForwardRefRenderFunction<DataEditorRef, DataEditorPr
                 }
                 // take care of context menus first if long pressed item is already selected
                 if (args.isLongTouch === true) {
+                    if (args.kind === "cell") {
+                        const section = getSectionForRow(args.location[1]);
+                        if (section !== undefined) {
+                            onSectionHeaderContextMenu?.(section, {
+                                ...toPublicSectionMouseArgs(args, section),
+                                preventDefault,
+                            });
+                            return;
+                        }
+                    }
+
                     if (args.kind === "cell" && itemsAreEqual(gridSelection.current?.cell, args.location)) {
                         const publicCell = toPublicCell(args.location);
                         const publicArgs = toPublicMouseArgs(args);
@@ -2793,6 +2893,8 @@ const DataEditorImpl: React.ForwardRefRenderFunction<DataEditorRef, DataEditorPr
             onCellClicked,
             toPublicCell,
             toPublicMouseArgs,
+            toPublicSectionMouseArgs,
+            getSectionForRow,
             getMangledCellContent,
             getCellRenderer,
             cellActivationBehavior,
@@ -2801,6 +2903,8 @@ const DataEditorImpl: React.ForwardRefRenderFunction<DataEditorRef, DataEditorPr
             onCellActivated,
             reselect,
             onCellContextMenu,
+            onSectionHeaderClicked,
+            onSectionHeaderContextMenu,
             onHeaderContextMenu,
             onGroupHeaderContextMenu,
             handleSelect,
@@ -3888,6 +3992,15 @@ const DataEditorImpl: React.ForwardRefRenderFunction<DataEditorRef, DataEditorPr
 
             if (args.kind === "cell") {
                 const [col, row] = args.location;
+                const section = getSectionForRow(row);
+                if (section !== undefined) {
+                    onSectionHeaderContextMenu?.(section, {
+                        ...toPublicSectionMouseArgs(args, section),
+                        preventDefault,
+                    });
+                    return;
+                }
+
                 const publicCell = toPublicCell([col, row]);
                 const publicArgs = toPublicMouseArgs(args);
                 if (publicCell !== undefined && publicArgs !== undefined) {
@@ -3905,11 +4018,14 @@ const DataEditorImpl: React.ForwardRefRenderFunction<DataEditorRef, DataEditorPr
         [
             gridSelection,
             onCellContextMenu,
+            onSectionHeaderContextMenu,
             onGroupHeaderContextMenu,
             onHeaderContextMenu,
+            getSectionForRow,
             rowMarkerOffset,
             toPublicCell,
             toPublicMouseArgs,
+            toPublicSectionMouseArgs,
             updateSelectedCell,
         ]
     );
@@ -4683,8 +4799,8 @@ const DataEditorImpl: React.ForwardRefRenderFunction<DataEditorRef, DataEditorPr
                         <div
                             data-testid="gdg-sticky-section"
                             style={stickySection.sectionStyle}
-                            onClick={stopStickySectionEvent}
-                            onContextMenu={stopStickySectionEvent}
+                            onClick={onStickySectionClick}
+                            onContextMenu={onStickySectionContextMenu}
                             onMouseDown={stopStickySectionEvent}
                             onMouseUp={stopStickySectionEvent}
                             onPointerDown={stopStickySectionEvent}
