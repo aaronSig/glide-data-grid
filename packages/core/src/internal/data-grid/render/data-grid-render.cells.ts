@@ -257,13 +257,14 @@ export function drawCells(
                                 ctx.beginPath();
                                 const d = Math.max(0, clipX - area.x);
                                 ctx.rect(area.x + d, drawY, area.width - d, rh);
+                                const gridLineClipOverlap = !c.sticky && splitSectionSpan ? 1 : 0;
                                 if (result === undefined) {
                                     result = [];
                                 }
                                 result.push({
-                                    x: area.x + d,
+                                    x: area.x + d - gridLineClipOverlap,
                                     y: drawY,
-                                    width: area.width - d,
+                                    width: area.width - d + gridLineClipOverlap,
                                     height: rh,
                                 });
                                 ctx.clip();

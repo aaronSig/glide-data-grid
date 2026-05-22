@@ -63,7 +63,7 @@ describe("drawCells", () => {
             span: [0, 2],
         };
 
-        drawCells(
+        const spans = drawCells(
             ctx,
             columns,
             columns,
@@ -121,5 +121,9 @@ describe("drawCells", () => {
             theme.cellHorizontalPadding * 2,
         ]);
         expect(backgroundCalls.map(call => call.props.width)).toEqual([80, 160]);
+        expect(spans).toEqual([
+            { x: 0, y: 36, width: 80, height: 44 },
+            { x: 79, y: 36, width: 161, height: 44 },
+        ]);
     });
 });

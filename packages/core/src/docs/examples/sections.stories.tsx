@@ -9,6 +9,9 @@ import {
 } from "../../data-editor/stories/utils.js";
 import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 
+const inWorkTitle = "In work (42)";
+const agreedTitle = "Agreed (33)";
+
 export default {
     title: "Glide-Data-Grid/DataEditor Demos",
 
@@ -59,7 +62,7 @@ export const Sections: React.VFC = () => {
                         headerFontStyle: "600 14px",
                     },
                 },
-                { row: 66, title: "Agreed (33)", sticky: true },
+                { row: 66, title: agreedTitle, sticky: true },
                 { row: 99, title: "Archived (18)", sticky: true },
             ]}
             columns={cols}
@@ -91,8 +94,41 @@ export const SectionsWithFrozenColumns: React.VFC = () => {
                         headerFontStyle: "600 14px",
                     },
                 },
-                { row: 24, title: "In work (42)", sticky: true },
-                { row: 66, title: "Agreed (33)", sticky: true },
+                { row: 24, title: inWorkTitle, sticky: true },
+                { row: 66, title: agreedTitle, sticky: true },
+            ]}
+            columns={cols}
+            rows={200}
+        />
+    );
+};
+
+export const SectionsWithFrozenColumnBorders: React.VFC = () => {
+    const { cols, getCellContent } = useMockDataGenerator(10, false);
+
+    return (
+        <DataEditor
+            {...defaultProps}
+            getCellContent={getCellContent}
+            freezeColumns={1}
+            verticalBorder={true}
+            rowMarkers="none"
+            smoothScrollX={true}
+            smoothScrollY={true}
+            sections={[
+                {
+                    row: 0,
+                    title: "Frozen first column with vertical borders - no divider should cross this section",
+                    sticky: true,
+                    themeOverride: {
+                        bgGroupHeader: "#fff5e6",
+                        textGroupHeader: "#5a3b07",
+                        borderColor: "#e0c184",
+                        headerFontStyle: "600 14px",
+                    },
+                },
+                { row: 24, title: inWorkTitle, sticky: true },
+                { row: 66, title: agreedTitle, sticky: true },
             ]}
             columns={cols}
             rows={200}
