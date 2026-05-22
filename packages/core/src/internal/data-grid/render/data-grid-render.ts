@@ -443,7 +443,8 @@ export function drawGrid(arg: DrawGridArg, lastArg: DrawGridArg | undefined) {
             const selectionCurrent = selection.current;
 
             if (
-                (fillHandle !== false && fillHandle !== undefined) &&
+                fillHandle !== false &&
+                fillHandle !== undefined &&
                 drawFocus &&
                 selectionCurrent !== undefined &&
                 damage.has(rectBottomRight(selectionCurrent.range))
@@ -561,8 +562,12 @@ export function drawGrid(arg: DrawGridArg, lastArg: DrawGridArg | undefined) {
         height,
         freezeTrailingRows,
         rows,
+        totalHeaderHeight,
+        translateY,
+        cellYOffset,
         verticalBorder,
         getRowHeight,
+        getCellContent,
         theme
     );
 
