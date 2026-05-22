@@ -49,7 +49,7 @@ export const Sections: React.VFC = () => {
                 { row: 0, title: "New (24)", sticky: true },
                 {
                     row: 24,
-                    title: "In work (42)",
+                    title: "In work - lots awaiting buyer review, supplier confirmation, and settlement approval (42)",
                     sticky: true,
                     stickyStyle: "frosted",
                     themeOverride: {
